@@ -1,0 +1,74 @@
+alice 2024-01-01T09:00:00 login
+alice 2024-01-01T10:00:00 logout
+alice 2024-01-01T12:00:00 login
+alice 2024-01-01T15:00:00 logout
+alice 2024-01-01T16:00:00 login
+alice 2024-01-01T20:00:00 logout
+bob 2024-01-01T09:00:00 login
+bob 2024-01-01T13:00:00 logout
+bob 2024-01-01T14:00:00 login
+bob 2024-01-01T19:00:00 logout
+bob 2024-01-01T21:00:00 login
+bob 2024-01-01T23:00:00 logout
+charlie 2024-01-01T09:00:00 login
+charlie 2024-01-01T14:00:00 logout
+charlie 2024-01-01T16:00:00 login
+charlie 2024-01-01T21:00:00 logout
+charlie 2024-01-02T00:00:00 login
+charlie 2024-01-02T04:00:00 logout
+david 2024-01-01T09:00:00 login
+david 2024-01-01T14:00:00 logout
+david 2024-01-01T15:00:00 login
+david 2024-01-01T20:00:00 logout
+david 2024-01-01T21:00:00 login
+david 2024-01-01T23:00:00 logout
+emma 2024-01-01T09:00:00 login
+emma 2024-01-01T10:00:00 logout
+emma 2024-01-01T11:00:00 login
+emma 2024-01-01T12:00:00 logout
+emma 2024-01-01T13:00:00 login
+
+from mrjob.job import MRJob
+from datetime import datetime
+import json
+
+class LogAnalysis(MRJob):
+
+    def mapper(self, _, line):
+        parts = line.strip().split()
+        if len(parts) == 3:
+            user, timestamp, action = parts
+            yield user, json.dumps((timestamp, action))
+
+    def reducer(self, user, values):
+        events = []
+        for v in values:
+            timestamp, action = json.loads(v)  
+            events.append((timestamp, action))
+
+        total = 0
+        login_time = None
+
+        for timestamp, action in sorted(events):
+            try:
+                t = datetime.fromisoformat(timestamp)
+            except ValueError:
+                continue  
+
+            if action == "login":
+                login_time = t
+            elif action == "logout" and login_time:
+                total += (t - login_time).total_seconds()
+                login_time = None
+
+        yield user, round(total / 3600, 2)  
+
+if __name__ == "__main__":
+    LogAnalysis.run() 
+
+#how to run 
+#python 2nd_code.py system_logs.txt > output.txt
+#type output.txt | sort /R
+
+
+emma 2024-01-01T16:00:00 logout
